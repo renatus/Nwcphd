@@ -1,0 +1,4 @@
+name = Custom recommend
+description = Module to show related pages and queries
+core = 7.x
+configure = admin/config/content/custom_recommend
