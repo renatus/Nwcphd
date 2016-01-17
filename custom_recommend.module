@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * @file
+ * A block module that displays queries, which will list current page among it's
+ * results; and other pages from those lists of results as well.
+ */
+
+/**
+ * Implements hook_block_info().
+ */
+function custom_recommend_block_info() {
+  $blocks['custom_recommend_pages'] = array(
+    // The name that will appear in the Block list.
+    'info' => t('Custom recommend Pages'),
+    // Default caching setting.
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+  return $blocks;
+}
+
+
