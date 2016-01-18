@@ -28,13 +28,15 @@ function custom_recommend_block_info() {
  *   A filtered set of the nodes.
  */
 function custom_recommend_retrieve_nodes(){ 
+  $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
+  
   // Database API to retrieve nodes is being used.
   $query = db_select('node', 'n')
     ->fields('n', array('nid', 'title', 'created', 'type'))
     ->condition('status', 1) //Only published nodes should be listed.
     ->condition('type', 'object')
     ->orderBy('created', 'DESC') //Most recent ones go first.
-    ->range(0,5) //LIMIT to 5 records
+    ->range(0, $max_nodes_num) //LIMIT to 5 records
     ->execute(); 
   return $query;  
 }
@@ -73,4 +75,46 @@ function custom_recommend_block_view($delta = '') {
     return $block;
   }
   
+}
+
+/**
+ * Implements hook_menu().
+ * 
+ * Create page for module settings input form.
+ */
+function custom_recommend_menu() {
+  $items = array();
+
+  // Do not use t() for 'title' and 'description', it'll be translatable anyway.
+  // 'access arguments' will limit config page visibility to those with admin
+  // permissions.
+  $items['admin/config/content/custom_recommend'] = array(
+    'title' => 'Custom recommend',
+    'description' => 'Configuration for Custom recommend module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('custom_recommend_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback: Custom recommend settings
+ *
+ * @see custom_recommend_menu()
+ */
+function custom_recommend_form($form, &$form_state) {
+  $form['custom_recommend_nodes_max'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum number of nodes to display in block'),
+    '#default_value' => variable_get('custom_recommend_nodes_max', 5),
+    '#size' => 2,
+    '#maxlength' => 2,
+    '#description' => t('Maximum number of links to display in our block.'),
+    '#required' => TRUE,
+  );
+
+  return system_settings_form($form);
 }
