@@ -26,6 +26,70 @@ function custom_recommend_schema() {
     
     'primary key' => array('entityid'),
   );
+  
+  //TODO: Ask if VARCHAR is fine (255 symbols limit)
+  $schema ['custom_recommend_sprsqueries'] = array(
+    'description' => 'Table to store search queries.',
+    'fields' => array(
+      
+      'id' => array(
+        'description' => 'Query unique ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      
+      'query_text' => array(
+        'description' => 'Query in a human-readable form.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      
+      'query_relative_url' => array(
+        'description' => 'Query relative URL.',
+        'type' => 'text',
+        'length' => 3000,
+        'not null' => TRUE,
+      ),
+      
+    ),
+    
+    'indexes' => array(
+      'query_text' => array('query_text'),
+    ),
+    
+    'primary key' => array('id'),
+  );
+  
+  //Each NID and ID can be listed multiple times in that table.
+  $schema ['custom_recommend_sprsquery_results'] = array(
+    'description' => 'Table to store NIDs of pages listed among particular query results.',
+    'fields' => array(
+      
+      'queryid' => array(
+        'description' => 'Query ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      
+      'entityid' => array(
+        'description' => 'Page Drupal NID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      
+    ),
+    
+    'indexes' => array(
+      'entityid' => array('entityid'),
+      'queryid' => array('queryid'),
+    ),
+
+  );
 
   return $schema;
 }
