@@ -19,4 +19,58 @@ function custom_recommend_block_info() {
   return $blocks;
 }
 
+/**
+ * Custom content function. 
+ * 
+ * Retrieve nodes from database, sorted by creation date.
+ * 
+ * @return 
+ *   A filtered set of the nodes.
+ */
+function custom_recommend_retrieve_nodes(){ 
+  // Database API to retrieve nodes is being used.
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid', 'title', 'created', 'type'))
+    ->condition('status', 1) //Only published nodes should be listed.
+    ->condition('type', 'object')
+    ->orderBy('created', 'DESC') //Most recent ones go first.
+    ->range(0,5) //LIMIT to 5 records
+    ->execute(); 
+  return $query;  
+}
 
+/**
+ * Implements hook_block_view().
+ * 
+ * Add content to the block.
+ */
+function custom_recommend_block_view($delta = '') {
+  switch ($delta) {
+    case 'custom_recommend_pages':
+      $block['subject'] = t('Recommended stories');
+      // Check if user is allowed to see a node to prevent data disclosure.
+      if (user_access('access content')) {
+        // Retrieve nodes from the DB.
+        $result = custom_recommend_retrieve_nodes();
+        // Array to contain items for the block to render.
+        $items = array();
+        // Iterate over the results and format every item as link.
+        foreach ($result as $node) {
+          $items[] = array(
+            'data' => l($node->title, 'node/' . $node->nid),
+          ); 
+        }
+        // If there were no content related to the current node.
+        if (empty($items)) {
+          $block['content'] = t('Err, we have no stories like this. Yet.');  
+        } 
+        else {
+          // Pass data through theme function to theme it by our site's theme.
+          $block['content'] = theme('item_list', array(
+            'items' => $items));
+        }
+      }
+    return $block;
+  }
+  
+}
