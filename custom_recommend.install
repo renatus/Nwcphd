@@ -1,0 +1,31 @@
+<?php
+
+function custom_recommend_schema() {
+  
+  // 'Unsigned' integer can hold a larger positive value, and no negative value.
+  // We don't have to create indexes for Primary key column.
+  $schema ['custom_recommend_sprspages'] = array(
+    'description' => 'Table to store number of clicks per page.',
+    'fields' => array(
+      
+      'entityid' => array(
+        'description' => 'Page Drupal NID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      
+      'click_num' => array(
+        'description' => 'Number of clicks per page.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    
+    'primary key' => array('entityid'),
+  );
+
+  return $schema;
+}
