@@ -85,6 +85,7 @@ function custom_recommend_block_view($delta = '') {
 function custom_recommend_menu() {
   $items = array();
 
+  // Create module's settings page.
   // Do not use t() for 'title' and 'description', it'll be translatable anyway.
   // 'access arguments' will limit config page visibility to those with admin
   // permissions.
@@ -95,6 +96,17 @@ function custom_recommend_menu() {
     'page arguments' => array('custom_recommend_form'),
     'access arguments' => array('access administration pages'),
     'type' => MENU_NORMAL_ITEM,
+  );
+  
+  // Create page to collect clicks stats.
+  // MENU_CALLBACK simply register a path so that the correct function is fired
+  // when the URL is accessed.
+  $items['custom_recommend_get_click_data'] = array(
+    'title' => 'Click data collection',
+    'description' => 'Configuration for Custom recommend module',
+    'page callback' => 'custom_recommend_count_clicks',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
   );
 
   return $items;
@@ -117,4 +129,73 @@ function custom_recommend_form($form, &$form_state) {
   );
 
   return system_settings_form($form);
+}
+
+/**
+ * Function to count clicks at Search results page.
+ * 
+ * You should ping it like that:
+ * http://www.nwcphd.co.uk/custom_recommend_get_click_data?page_name=Waller%20Street%20Baths
+ */
+function custom_recommend_count_clicks() {
+  $page_name = $_GET["page_name"];
+  $page_id = custom_recommend_retrieve_node_by_title($page_name);
+  //drupal_set_message($page_name . " page was requested 1 more time. It's ID is " . $page_id);
+  
+  
+  
+  // Database API to retrieve nodes is being used.
+  $query = db_select('custom_recommend_sprspages', 'en')
+    ->fields('en', array('entityid', 'click_num'))
+    ->condition('entityid', $page_id) //Filter by node title.
+    ->range(0, 1) //LIMIT to 1 record
+    ->execute();
+  
+  $click_num = 0;
+  foreach ($query as $entry) {
+    $click_num = $entry->click_num;
+  } 
+  
+  drupal_set_message($click_num);
+  
+  if ($click_num != 0) {
+    // Entry exists
+    db_update('custom_recommend_sprspages')
+    ->fields(array(
+      'entityid' => $page_id,
+      'click_num' => $click_num + 1,
+    ))
+    ->condition('entityid', $page_id)
+    ->execute();
+  } else {
+    // Entry is not exist
+    db_insert('custom_recommend_sprspages')
+    ->fields(array(
+      'entityid' => $page_id,
+      'click_num' => $click_num + 1,
+    ))
+    ->execute();
+  }
+}
+
+/**
+ * Custom content function. 
+ * 
+ * Retrieve node by it's title from database.
+ * 
+ * @return 
+ *   NID of a first node with provided title.
+ */
+function custom_recommend_retrieve_node_by_title($node_title){ 
+  
+  // Database API to retrieve nodes is being used.
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid', 'title')) 
+    ->condition('title', $node_title) //Filter by node title.
+    ->range(0, 1) //LIMIT to 1 record
+    ->execute();
+  
+  foreach ($query as $node) {
+    return $node->nid;
+  } 
 }
