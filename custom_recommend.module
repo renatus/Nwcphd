@@ -31,14 +31,20 @@ function custom_recommend_retrieve_nodes(){
   $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
   
   // Database API to retrieve nodes is being used.
-  $query = db_select('node', 'n')
+  $query = db_select('custom_recommend_sprspages', 'clicks');
+      
+  $query->join('node', 'n', 'n.nid = clicks.entityid');
+  
+  $query
     ->fields('n', array('nid', 'title', 'created', 'type'))
-    ->condition('status', 1) //Only published nodes should be listed.
-    ->condition('type', 'object')
-    ->orderBy('created', 'DESC') //Most recent ones go first.
-    ->range(0, $max_nodes_num) //LIMIT to 5 records
-    ->execute(); 
-  return $query;  
+    ->condition('n.status', 1) //Only published nodes should be listed.
+    ->condition('n.type', 'object')
+    ->orderBy('clicks.click_num', 'DESC') //Most recent ones go first.
+    ->range(0, $max_nodes_num); //LIMIT to given number of records.
+
+  $result= $query->execute();  
+  
+  return $result;  
 }
 
 /**
