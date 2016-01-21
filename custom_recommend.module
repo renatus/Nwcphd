@@ -107,10 +107,10 @@ function custom_recommend_menu() {
   // Create page to collect clicks stats.
   // MENU_CALLBACK simply register a path so that the correct function is fired
   // when the URL is accessed.
-  $items['custom_recommend_get_click_data'] = array(
-    'title' => 'Click data collection',
-    'description' => 'Configuration for Custom recommend module',
-    'page callback' => 'custom_recommend_count_clicks',
+  $items['custom_recommend_get_frontend_data'] = array(
+    'title' => 'Frontend data collection',
+    'description' => 'Get data about SPRS queries and link clicks',
+    'page callback' => 'custom_recommend_process_frontend_data',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
@@ -163,17 +163,69 @@ function custom_recommend_form($form, &$form_state) {
  * You should ping it like that:
  * http://www.nwcphd.co.uk/custom_recommend_get_click_data?page_name=Waller%20Street%20Baths
  */
-function custom_recommend_count_clicks() {
-  $node_name = $_GET["page_name"];
-  $node_nid = custom_recommend_retrieve_node_by_title($node_name);
-  //drupal_set_message($page_name . " page was requested 1 more time. It's ID is " . $page_id);
-  custom_recommend_add_click($node_nid);
+function custom_recommend_process_frontend_data() {
+  //TODO: sanitize input!
+  $query_type = $_POST["query_type"];
+  if ($query_type == 'link_click') {
+    $node_name = $_POST["page_name"];
+    drupal_set_message($node_name);
+    $node_nid = custom_recommend_retrieve_node_by_title($node_name);
+    custom_recommend_add_click($node_nid);
+  } elseif  ($query_type == 'query_result') {
+    $query_text = $_POST["query_text"];
+    //http://www.nwcphd.co.uk/SPRS/SPRS.htm?endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285%2CModif%28Select%2CUnordered%29%2CClass%28%22http%3A//rdfs.org/sioc/ns%23Item%22%29%29%2CNone%29%29
+    $query_url = $_POST["query_url"];
+    //$query_rel_url[1] will contain something like:
+    //endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285
+    $query_rel_url = explode("?", $query_url, 2);
+    
+    $query = db_select('custom_recommend_sprsqueries', 'en')
+    ->fields('en', array('id', 'query_text', 'query_relative_url'))
+    ->condition('query_text', $query_text) //Filter by node title.
+    ->range(0, 1) //LIMIT to 1 record
+    ->execute();
+    
+    $query_id = 0;
+    foreach ($query as $entry) {
+      $query_id = $entry->id;
+    }
+    
+    if($query_id == 0) {
+      // Entry is not exist
+      $query_id = db_insert('custom_recommend_sprsqueries')
+      ->fields(array(
+        'query_text' => $query_text,
+        'query_relative_url' => $query_rel_url[1],
+      ))
+      ->execute();
+      //drupal_set_message($query_id);
+    }
+    
+    //Query results processing
+    $results_obj = $_POST["results_obj"];
+    $results_arr = json_decode($results_obj, true);
+    //drupal_set_message($results_obj_arr[0]['pageName']);
+    foreach ($results_arr as &$value) {
+      $result_url = $value['pageURL'];
+      //$result_dru_alias[3] will contain something like:
+      //event/wedding-elsie-annie-reid-and-gunner-james-arthur-bint
+      $result_dru_alias = explode("/", $result_url, 4);
+      //Will return something like node/12
+      $result_dru_url = drupal_lookup_path("source", $result_dru_alias[3]);
+      //$result_nid[1] will contain something like: 12
+      $result_nid = explode("/", $result_dru_url);
+      drupal_set_message($result_nid[1]);
+      
+      custom_recommend_add_query_page_link($query_id, $result_nid[1]);
+    }
+    
+  }
 }
 
 /**
  * Custom content function. 
  * 
- * Retrieve node by it's title from database.
+ * Retrieve single node by it's title from database.
  * 
  * @return 
  *   NID of a first node with provided title.
@@ -241,6 +293,30 @@ function custom_recommend_add_click($node_nid) {
     ->fields(array(
       'entityid' => $node_nid,
       'click_num' => $click_num + 1,
+    ))
+    ->execute();
+  }
+}
+
+function custom_recommend_add_query_page_link($query_id, $node_nid) {
+  $query = db_select('custom_recommend_sprsquery_results', 'en')
+    ->fields('en', array('queryid', 'entityid'))
+    ->condition('queryid', $query_id)
+    ->condition('entityid', $node_nid) //Filter by node NID.
+    ->range(0, 1) //LIMIT to 1 record
+    ->execute();
+  
+  $entry_exists = 0;
+  foreach ($query as $entry) {
+    $entry_exists = 1;
+  }
+  
+  if ($entry_exists == 0) {
+    // Entry is not exist
+    db_insert('custom_recommend_sprsquery_results')
+    ->fields(array(
+      'queryid' => $query_id,
+      'entityid' => $node_nid,
     ))
     ->execute();
   }
