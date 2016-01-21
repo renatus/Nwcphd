@@ -2,18 +2,20 @@
 
 /**
  * @file
- * A block module that displays queries, which will list current page among it's
+ * A block module that displays queries, that would list current page among it's
  * results; and other pages from those lists of results as well.
  */
 
 /**
  * Implements hook_block_info().
+ * 
+ * Creating block for our links.
  */
 function custom_recommend_block_info() {
   $blocks['custom_recommend_links'] = array(
     // The name that will appear in the Block list.
     'info' => t('Custom recommend links'),
-    // Default caching setting.
+    // Default caching settings.
     'cache' => DRUPAL_CACHE_PER_ROLE,
   );
   return $blocks;
@@ -26,18 +28,23 @@ function custom_recommend_block_info() {
  */
 function custom_recommend_block_view($delta = '') {
   switch ($delta) {
+    // Block for links.
     case 'custom_recommend_links':
+      // Block title, as shown to site visitors.
       $block['subject'] = t('Related Links');
       // Check if user is allowed to see a node to prevent data disclosure.
-      if (user_access('access content')) {    
-        $cur_node = menu_get_object(); 
+      if (user_access('access content')) {
+        // Get currently-displayed node.
+        $cur_node = menu_get_object();
+        // Array for queries list.
         $queries_list = array();
+        // If there is NID (may be abscent, if we're on tag page, for example).
         if (isset($cur_node->nid)) {
+          // Current node NID.
           $cur_nid = $cur_node->nid;
-          
           // Retrieve nodes from the DB.
           $result = custom_recommend_retrieve_nodes($cur_nid);
-          // Array to contain items for the block to render.
+          // Array for pages list for the block to render.
           $items = array();
           // Iterate over the results and format every item as link.
           foreach ($result as $node) {
@@ -46,10 +53,12 @@ function custom_recommend_block_view($delta = '') {
             );
           }
         
+          // Retrieve queries from the DB.
           $queries_filtered = custom_recommend_retrieve_queries($cur_nid);
-          
           // Iterate over the results and format every item as link.
           foreach ($queries_filtered as $entry) {
+            // Combine domain (http://www.nwcphd.co.uk/), SPRS URL part
+            // (SPRS/SPRS.htm), and query's relative URL to get full query path.
             $query_url = $GLOBALS['base_url'] . "/" . variable_get('custom_recommend_sprs_url', 'SPRS/SPRS.htm') . "?" . $entry->{'query_relative_url'};
             $queries_list[] = array(
               'data' => '<a href="' . $query_url . '">' . $entry->{'query_text'} . '</a>',
@@ -57,40 +66,35 @@ function custom_recommend_block_view($delta = '') {
           }
         }
 
-        
-        
         if (empty($queries_list)) {
+          // There are no queries associated with the currently displayed page.
           $queries_element = t('Err, that page was not shown in the search results. Yet.');
         } else {
+          // There are queries associated with currently displayed page.
           // Pass data through theme function to theme it by our site's theme.
-          $queries_element = theme('item_list', array(
-          'items' => $queries_list));
+          $queries_element = theme('item_list', array('items' => $queries_list));
         }
         
-        
-        // If there were no content related to the current node.
         if (empty($items)) {
+          // There are no pages associated with the currently displayed page.
           $pages_element = t('Err, we have no stories like this. Yet.');  
         } else {
+          // There are pages associated with the currently displayed page.
           // Pass data through theme function to theme it by our site's theme.
-          $pages_element = theme('item_list', array(
-          'items' => $items));
+          $pages_element = theme('item_list', array('items' => $items));
         }
         
-        
-        //$block['content'] = t('<p>Related Stories</p>') . $pages_element . t('<hr/><p>Related Queries</p>') . $queries_element;
+        // Add prepared content to block.
         $block['content'] = t('<p>Related Queries</p>') . $queries_element . '<hr/>' . t('<p>Related Stories</p>') . $pages_element;
-        
       }
     return $block;
   }
-  
 }
 
 /**
  * Implements hook_menu().
  * 
- * Create page for module settings input form.
+ * Create pagees we need for our module.
  */
 function custom_recommend_menu() {
   $items = array();
@@ -99,6 +103,9 @@ function custom_recommend_menu() {
   // Do not use t() for 'title' and 'description', it'll be translatable anyway.
   // 'access arguments' will limit config page visibility to those with admin
   // permissions.
+  // 'type' will define, how the page should be displayed, should it be added to
+  //  menus, etc. MENU_NORMAL_ITEM - normal page, MENU_CALLBACK - page to run
+  // certain function when opened.
   $items['admin/config/content/custom_recommend'] = array(
     'title' => 'Custom recommend',
     'description' => 'Configuration for Custom recommend module',
@@ -108,8 +115,8 @@ function custom_recommend_menu() {
     'type' => MENU_NORMAL_ITEM,
   );
   
-  // Create page to collect clicks stats.
-  // MENU_CALLBACK simply register a path so that the correct function is fired
+  // Create page to get data from SPRS.htm frontend via AJAX ($_POST, JSON).
+  // MENU_CALLBACK simply registers a path so that the correct function is fired
   // when the URL is accessed.
   $items['custom_recommend_get_frontend_data'] = array(
     'title' => 'Frontend data collection',
@@ -123,21 +130,28 @@ function custom_recommend_menu() {
 }
 
 /**
- * Page callback: Custom recommend settings
+ * Page callback: Custom recommend module settings
  *
+ * Populate module's settings page with input form.
  * @see custom_recommend_menu()
  */
 function custom_recommend_form($form, &$form_state) {
+  // Input to limit max number of page titles being dislayed in the block.
   $form['custom_recommend_nodes_max'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximum number of nodes to display in block'),
+    // Get and set setting value.
     '#default_value' => variable_get('custom_recommend_nodes_max', 5),
+    // Input size on screen.
     '#size' => 2,
+    // Max number of digits allowed. 
     '#maxlength' => 2,
     '#description' => t("Maximum number of links to site's pages to display in our block."),
+    // Can't be empty.
     '#required' => TRUE,
   );
   
+  // Input to limit max number of queries being dislayed in the block.
   $form['custom_recommend_queries_max'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximum number of queries to display in block'),
@@ -148,7 +162,8 @@ function custom_recommend_form($form, &$form_state) {
     '#required' => TRUE,
   );
   
-    $form['custom_recommend_sprs_url'] = array(
+  //Relative SPRS page URL, like SPRS/SPRS.htm
+  $form['custom_recommend_sprs_url'] = array(    
     '#type' => 'textfield',
     '#title' => t('Relative SPRS page URL'),
     '#default_value' => variable_get('custom_recommend_sprs_url', 'SPRS/SPRS.htm'),
@@ -162,99 +177,114 @@ function custom_recommend_form($form, &$form_state) {
 }
 
 /**
- * Custom content function. 
- * 
- * Retrieve nodes from database, sorted by creation date.
+ * Function to retrieve displayed node-related nodes from the database, sorted 
+ * by number of clicks each of them got.
  * 
  * @return 
  *   A filtered set of the nodes.
  */
-function custom_recommend_retrieve_nodes($cur_nid){ 
+function custom_recommend_retrieve_nodes($cur_nid){
+  // Max number of node titles to display at block.
   $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
-  //drupal_set_message($cur_nid);
   
-  
-  
+  // Creating virtual "supertable" by joining normal tables. DB intensive!  
   $query = db_select('custom_recommend_sprsquery_results', 'res');
   $query->join('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
   $query->rightJoin('custom_recommend_sprsquery_results', 'res2', 'que.id = res2.queryid');
   $query->leftJoin('custom_recommend_sprspages', 'clicks', 'clicks.entityid = res2.entityid');
   $query->leftJoin('node', 'n', 'n.nid = res2.entityid');
   
+  // We should only add those fields to "->fields", that we're going to display.
+  // You don't need to add fields for conditions, orderBy or joins statements.
+  // You can load fields from multiple tables like that:
+  // ->fields('res', array('queryid', 'entityid'), 'que', array('id'))
+  // You can join the very same table two times, convenient in case you need
+  // sophisticated filtration. 
   $query
-    //->fields('res', array('queryid', 'entityid'), 'que', array('id'))
     ->fields('n', array('nid', 'title'))
     ->condition('res.entityid', $cur_nid) 
     ->condition('res2.entityid', $cur_nid, '<>')
     ->orderBy('clicks.click_num', 'DESC') //Most popular ones go first.
     ->range(0, $max_nodes_num);
   
+  // Perform composed query.
   $result = $query->execute();
-  
-  return $result;
-  // Iterate over the results and format every item as link.
-  //foreach ($result2 as $entry) {
-    //drupal_set_message(var_dump($entry));
-  //  drupal_set_message($entry->{'title'});
-  //} 
+  return $result; 
 }
 
-
-
-function custom_recommend_retrieve_queries($cur_nid){ 
+/**
+ * Function to retrieve displayed node-related queries from the database, sorted 
+ * by number of clicks each of them got.
+ * 
+ * @return 
+ *   A filtered set of the queries.
+ */
+function custom_recommend_retrieve_queries($cur_nid){
+  // Max number of queries to display at block.
   $max_queries_num = variable_get('custom_recommend_queries_max', 5);
  
-  
-  // Database API to retrieve nodes is being used.
+  // Creating "supertable" with data on per-query click numbers, and with it's
+  // results NIDs.
   $query = db_select('custom_recommend_sprsquery_results', 'res');
   $query->leftJoin('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
   
-  // 
+  // Filter query results.
   $query
     ->fields('que', array('id', 'query_text', 'query_relative_url', 'click_num'), 'res', array('queryid', 'entityid'))
-    ->condition('res.entityid', $cur_nid) //Only published nodes should be listed. 
-    ->orderBy('que.click_num', 'DESC') //Most popular ones go first.
-    ->range(0, $max_queries_num); //LIMIT to given number of records.
+    ->condition('res.entityid', $cur_nid) // Only queries listing current node among results should be lsted. 
+    ->orderBy('que.click_num', 'DESC') // Most popular ones go first.
+    ->range(0, $max_queries_num); // Limit to given number of records.
 
-   $result= $query->execute();  
-  
+  // Perform composed query.
+  $result= $query->execute();  
   return $result;  
 }
 
 /**
- * Function to count clicks at Search results page.
+ * Function to collect data sent by frontend SPRS script.
  * 
- * You should ping it like that:
- * http://www.nwcphd.co.uk/custom_recommend_get_click_data?page_name=Waller%20Street%20Baths
- * http://www.nwcphd.co.uk/individual/private-william-street
+ * Function is being triggered, when there is an incoming request.
+ * You can fire it here (don't forget to send $_POST data):
+ * http://www.nwcphd.co.uk/custom_recommend_get_click_data
  */
 function custom_recommend_process_frontend_data() {
-  //$_POST["query_type"]
+  // Get incoming query type.
+  // Don't get POST data like this: $_POST["query_type"] for security reasons.
   $query_type = filter_input(INPUT_POST, "query_type", FILTER_SANITIZE_STRING);
   if ($query_type == 'link_click') {
+    // BACKUP METHOD OF LINK CLICKS COUNT, UNUSED for now
     $node_name = filter_input(INPUT_POST, "page_name", FILTER_SANITIZE_STRING);
     $node_nid = custom_recommend_retrieve_node_by_title($node_name);
     custom_recommend_add_click($node_nid);
   } elseif  ($query_type == 'query_result') {
+    // Query and it's results were obtained.
+    // Query in human-readable form.
     $query_text = filter_input(INPUT_POST, "query_text", FILTER_SANITIZE_STRING);
-    //http://www.nwcphd.co.uk/SPRS/SPRS.htm?endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285%2CModif%28Select%2CUnordered%29%2CClass%28%22http%3A//rdfs.org/sioc/ns%23Item%22%29%29%2CNone%29%29
+    // Full query URL, like this:
+    // http://www.nwcphd.co.uk/SPRS/SPRS.htm?endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285%2CModif%28Select%2CUnordered%29%2CClass%28%22http%3A//rdfs.org/sioc/ns%23Item%22%29%29%2CNone%29%29
     $query_url = filter_input(INPUT_POST, "query_url", FILTER_SANITIZE_URL);
-    //$query_rel_url[1] will contain something like:
-    //endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285
+    // Relative query URL
+    // $query_rel_url[1] will contain something like:
+    // endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285
     $query_rel_url = explode("?", $query_url, 2);
     
+    // Check, if query is already stored at DB.
     $query = db_select('custom_recommend_sprsqueries', 'en')
-    ->fields('en', array('id', 'query_text', 'query_relative_url', 'click_num'))
-    ->condition('query_text', $query_text) //Filter by node title.
-    ->range(0, 1) //LIMIT to 1 record
-    ->execute();
+      //->fields('en', array('id', 'query_text', 'query_relative_url', 'click_num'))
+      ->fields('en', array('id', 'click_num'))
+      ->condition('query_text', $query_text) //Filter by query in human-readable form.
+      ->range(0, 1) //LIMIT to 1 record
+      ->execute();
     
     $query_id = 0;
     foreach ($query as $entry) {
-      // Entry exists
+      // Query is already at DB.
+      // Get query DB ID.
       $query_id = $entry->id;
+      // Current query clicks number.
       $click_num = $entry->click_num;
       
+      // Add one more click to the query.
       db_update('custom_recommend_sprsqueries')
       ->fields(array(
         'click_num' => $click_num + 1,
@@ -264,7 +294,8 @@ function custom_recommend_process_frontend_data() {
     }
     
     if($query_id == 0) {
-      // Entry is not exist
+      // Query is not in DB.
+      // Add query to DB.
       $query_id = db_insert('custom_recommend_sprsqueries')
       ->fields(array(
         'query_text' => $query_text,
@@ -272,41 +303,41 @@ function custom_recommend_process_frontend_data() {
         'click_num' => 1,
       ))
       ->execute();
-      //drupal_set_message($query_id);
     }
     
-    //Query results processing
+    // Query results list processing
     $results_obj = filter_input(INPUT_POST, "results_obj", FILTER_SANITIZE_URL);
+    // Convert list of objects to array.
     $results_arr = json_decode($results_obj, true);
-    //drupal_set_message($results_obj_arr[0]['pageName']);
+    // Iterate through array of pages listed as a results.
     foreach ($results_arr as &$value) {
+      // Full human-readable URL of a Drupal page.
       $result_url = $value['pageURL'];
-      //$result_dru_alias[3] will contain something like:
-      //event/wedding-elsie-annie-reid-and-gunner-james-arthur-bint
+      // Reative human-readable URL of a Drupal page.
+      // $result_dru_alias[3] will contain something like:
+      // event/wedding-elsie-annie-reid-and-gunner-james-arthur-bint
       $result_dru_alias = explode("/", $result_url, 4);
-      //Will return something like node/12
+      // Relative Drupal page internal URL, something like node/12
       $result_dru_url = drupal_lookup_path("source", $result_dru_alias[3]);
-      //$result_nid[1] will contain something like: 12
+      // $result_nid[1] will contain  NID, something like 12.
       $result_nid = explode("/", $result_dru_url);
-      drupal_set_message($result_nid[1]);
-      
+      // Add DB entry to reflect link between query and Drupal node.
       custom_recommend_add_query_page_link($query_id, $result_nid[1]);
     }
-    
   }
 }
 
 /**
- * Custom content function. 
- * 
  * Retrieve single node by it's title from database.
+ * 
+ * NEEEDED ONLY FOR BACKUP METHOD OF LINK CLICKS COUNT, UNUSED for now
  * 
  * @return 
  *   NID of a first node with provided title.
  */
 function custom_recommend_retrieve_node_by_title($node_title){ 
   
-  // Database API to retrieve nodes is being used.
+  // Get node by it's human-readable title.
   $query = db_select('node', 'n')
     ->fields('n', array('nid', 'title')) 
     ->condition('title', $node_title) //Filter by node title.
@@ -314,6 +345,7 @@ function custom_recommend_retrieve_node_by_title($node_title){
     ->execute();
   
   foreach ($query as $node) {
+    // Return NID.
     return $node->nid;
   } 
 }
@@ -325,11 +357,17 @@ function custom_recommend_retrieve_node_by_title($node_title){
  * We should only count those page views, that came from SPRS page.
  */
 function custom_recommend_node_view($node, $view_mode) {
+  // If loaded node is of particular type.
   if ($node->type=="object" || $node->type=="individual" || $node->type=="article" || $node->type=="event"){
+    // If it's not preview, but a full page being viewed.
     if ($view_mode == 'full'){
+      // Full SPRS.htm URL.
       $sprs_url = $GLOBALS['base_url'] . '/' . variable_get('custom_recommend_sprs_url', 'SPRS/SPRS.htm');
-      //drupal_set_message($sprs_url);
-      if ($_SERVER['HTTP_REFERER'] == $sprs_url) {
+      // Page URL user has visited before current one.
+      $prev_page_visited = filter_input(INPUT_SERVER, "HTTP_REFERER", FILTER_SANITIZE_URL);
+      // If user has came from SPRS.htm page.
+      if ($prev_page_visited == $sprs_url) {
+        // We should add one more click to a page being viewed currently.
         custom_recommend_add_click($node->nid);
       }
     }
@@ -337,56 +375,65 @@ function custom_recommend_node_view($node, $view_mode) {
   }    
 }
 
+/**
+ * Function to add one more click to particular node.
+ */
 function custom_recommend_add_click($node_nid) {
-  // Database API to retrieve nodes is being used.
+  // Try to get entry about this node from clicks DB table.
   $query = db_select('custom_recommend_sprspages', 'en')
     ->fields('en', array('entityid', 'click_num'))
-    ->condition('entityid', $node_nid) //Filter by node title.
+    ->condition('entityid', $node_nid) //Filter by node NID.
     ->range(0, 1) //LIMIT to 1 record
     ->execute();
   
   $click_num = 0;
   foreach ($query as $entry) {
+    // Entry in DB exists already.
+    // Save current number of clicks to add one to it.
     $click_num = $entry->click_num;
   } 
   
-  //drupal_set_message($click_num);
-  
   if ($click_num != 0) {
-    // Entry exists
+    // Entry exists, we should update it.
     db_update('custom_recommend_sprspages')
     ->fields(array(
       'entityid' => $node_nid,
-      'click_num' => $click_num + 1,
+      'click_num' => $click_num + 1, // Current number of clicks + 1.
     ))
     ->condition('entityid', $node_nid)
     ->execute();
   } else {
-    // Entry is not exist
+    // Entry is not exist, we should add it.
     db_insert('custom_recommend_sprspages')
     ->fields(array(
       'entityid' => $node_nid,
-      'click_num' => $click_num + 1,
+      'click_num' => $click_num + 1, // Entry is new, so there is only one click.
     ))
     ->execute();
   }
 }
 
+/**
+ * Function to add link between particular query and node to indicate the fact
+ * that node was listed among query results.
+ */
 function custom_recommend_add_query_page_link($query_id, $node_nid) {
+  // Trying to find existing link at DB.
   $query = db_select('custom_recommend_sprsquery_results', 'en')
     ->fields('en', array('queryid', 'entityid'))
-    ->condition('queryid', $query_id)
-    ->condition('entityid', $node_nid) //Filter by node NID.
+    ->condition('queryid', $query_id) // Filter by query ID.
+    ->condition('entityid', $node_nid) // Filter by node NID.
     ->range(0, 1) //LIMIT to 1 record
     ->execute();
   
   $entry_exists = 0;
   foreach ($query as $entry) {
+    // Link exists already, do nothing.
     $entry_exists = 1;
   }
   
   if ($entry_exists == 0) {
-    // Entry is not exist
+    // Link is not exist, we should add it.
     db_insert('custom_recommend_sprsquery_results')
     ->fields(array(
       'queryid' => $query_id,
