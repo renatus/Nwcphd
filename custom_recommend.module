@@ -229,17 +229,16 @@ function custom_recommend_retrieve_queries($cur_nid){
  * http://www.nwcphd.co.uk/individual/private-william-street
  */
 function custom_recommend_process_frontend_data() {
-  //TODO: sanitize input!
-  $query_type = $_POST["query_type"];
+  //$_POST["query_type"]
+  $query_type = filter_input(INPUT_POST, "query_type", FILTER_SANITIZE_STRING);
   if ($query_type == 'link_click') {
-    $node_name = $_POST["page_name"];
-    drupal_set_message($node_name);
+    $node_name = filter_input(INPUT_POST, "page_name", FILTER_SANITIZE_STRING);
     $node_nid = custom_recommend_retrieve_node_by_title($node_name);
     custom_recommend_add_click($node_nid);
   } elseif  ($query_type == 'query_result') {
-    $query_text = $_POST["query_text"];
+    $query_text = filter_input(INPUT_POST, "query_text", FILTER_SANITIZE_STRING);
     //http://www.nwcphd.co.uk/SPRS/SPRS.htm?endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285%2CModif%28Select%2CUnordered%29%2CClass%28%22http%3A//rdfs.org/sioc/ns%23Item%22%29%29%2CNone%29%29
-    $query_url = $_POST["query_url"];
+    $query_url = filter_input(INPUT_POST, "query_url", FILTER_SANITIZE_URL);
     //$query_rel_url[1] will contain something like:
     //endpoint=http%3A//www.nwcphd.co.uk/sparql&query=%5BVId%5DReturn%28Det%28An%285
     $query_rel_url = explode("?", $query_url, 2);
@@ -277,7 +276,7 @@ function custom_recommend_process_frontend_data() {
     }
     
     //Query results processing
-    $results_obj = $_POST["results_obj"];
+    $results_obj = filter_input(INPUT_POST, "results_obj", FILTER_SANITIZE_URL);
     $results_arr = json_decode($results_obj, true);
     //drupal_set_message($results_obj_arr[0]['pageName']);
     foreach ($results_arr as &$value) {
