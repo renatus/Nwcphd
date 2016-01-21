@@ -27,25 +27,73 @@ function custom_recommend_block_info() {
  * @return 
  *   A filtered set of the nodes.
  */
-function custom_recommend_retrieve_nodes(){ 
+function custom_recommend_retrieve_nodes($cur_nid){ 
   $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
+  //drupal_set_message($cur_nid);
+  
+  
+  
+  $query2 = db_select('custom_recommend_sprsquery_results', 'res');
+  $query2->join('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
+  
+  $query2
+    ->fields('res', array('queryid', 'entityid'), 'que', array('id'))
+    ->condition('res.entityid', 226) 
+    ->range(0, 100);
+  
+  $result2 = $query2->execute();  
+  // Iterate over the results and format every item as link.
+  foreach ($result2 as $entry) {
+    drupal_set_message($entry->{'queryid'});
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   // Database API to retrieve nodes is being used.
   $query = db_select('custom_recommend_sprspages', 'clicks');
-      
   $query->join('node', 'n', 'n.nid = clicks.entityid');
   
   $query
     ->fields('n', array('nid', 'title', 'created', 'type'))
-    ->condition('n.status', 1) //Only published nodes should be listed.
+    ->condition('n.status', 1) //Only published nodes should be listed. 
     //->condition('n.type', array('object', 'individual', 'article', 'event'), '=')
     ->orderBy('clicks.click_num', 'DESC') //Most recent ones go first.
     ->range(0, $max_nodes_num); //LIMIT to given number of records.
 
-  $result= $query->execute();  
+   $result= $query->execute();  
   
   return $result;  
 }
+
+
+
+function custom_recommend_retrieve_queries($cur_nid){ 
+  $max_queries_num = variable_get('custom_recommend_queries_max', 5);
+ 
+  
+  // Database API to retrieve nodes is being used.
+  $query = db_select('custom_recommend_sprsquery_results', 'res');
+  $query->leftJoin('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
+  
+  // 
+  $query
+    ->fields('que', array('id', 'query_text', 'query_relative_url', 'click_num'), 'res', array('queryid', 'entityid'))
+    ->condition('res.entityid', $cur_nid) //Only published nodes should be listed. 
+    ->orderBy('que.click_num', 'DESC') //Most popular ones go first.
+    ->range(0, $max_queries_num); //LIMIT to given number of records.
+
+   $result= $query->execute();  
+  
+  return $result;  
+}
+
 
 /**
  * Implements hook_block_view().
@@ -55,28 +103,58 @@ function custom_recommend_retrieve_nodes(){
 function custom_recommend_block_view($delta = '') {
   switch ($delta) {
     case 'custom_recommend_pages':
-      $block['subject'] = t('Recommended stories');
+      $block['subject'] = t('Related Links');
       // Check if user is allowed to see a node to prevent data disclosure.
-      if (user_access('access content')) {
-        // Retrieve nodes from the DB.
-        $result = custom_recommend_retrieve_nodes();
-        // Array to contain items for the block to render.
-        $items = array();
-        // Iterate over the results and format every item as link.
-        foreach ($result as $node) {
-          $items[] = array(
-            'data' => l($node->title, 'node/' . $node->nid),
-          ); 
+      if (user_access('access content')) {    
+        $cur_node = menu_get_object(); 
+        $queries_list = array();
+        if (isset($cur_node->nid)) {
+          $cur_nid = $cur_node->nid;
+          
+          // Retrieve nodes from the DB.
+          $result = custom_recommend_retrieve_nodes($cur_nid);
+          // Array to contain items for the block to render.
+          $items = array();
+          // Iterate over the results and format every item as link.
+          foreach ($result as $node) {
+            $items[] = array(
+              'data' => l($node->title, 'node/' . $node->nid),
+            );
+          }
+        
+          $queries_filtered = custom_recommend_retrieve_queries($cur_nid);
+          
+          // Iterate over the results and format every item as link.
+          foreach ($queries_filtered as $entry) {
+            $query_url = $GLOBALS['base_url'] . "/" . variable_get('custom_recommend_sprs_url', 'SPRS/SPRS.htm') . "?" . $entry->{'query_relative_url'};
+            $queries_list[] = array(
+              'data' => '<a href="' . $query_url . '">' . $entry->{'query_text'} . '</a>',
+            );
+          }
         }
+
+        
+        
+        if (empty($queries_list)) {
+          $queries_element = t('Err, that page was not shown in the search results. Yet.');
+        } else {
+          // Pass data through theme function to theme it by our site's theme.
+          $queries_element = theme('item_list', array(
+          'items' => $queries_list));
+        }
+        
+        
         // If there were no content related to the current node.
         if (empty($items)) {
-          $block['content'] = t('Err, we have no stories like this. Yet.');  
-        } 
-        else {
-          // Pass data through theme function to theme it by our site's theme.
-          $block['content'] = theme('item_list', array(
-            'items' => $items));
+          $pages_element = t('Err, we have no stories like this. Yet.');  
+        } else {
+          $pages_element = theme('item_list', array(
+          'items' => $items));
         }
+        
+        // Pass data through theme function to theme it by our site's theme.
+        $block['content'] = t('<p>Related Stories</p>') . $pages_element . t('<hr/><p>Related Queries</p>') . $queries_element;
+        
       }
     return $block;
   }
@@ -162,6 +240,7 @@ function custom_recommend_form($form, &$form_state) {
  * 
  * You should ping it like that:
  * http://www.nwcphd.co.uk/custom_recommend_get_click_data?page_name=Waller%20Street%20Baths
+ * http://www.nwcphd.co.uk/individual/private-william-street
  */
 function custom_recommend_process_frontend_data() {
   //TODO: sanitize input!
@@ -180,14 +259,23 @@ function custom_recommend_process_frontend_data() {
     $query_rel_url = explode("?", $query_url, 2);
     
     $query = db_select('custom_recommend_sprsqueries', 'en')
-    ->fields('en', array('id', 'query_text', 'query_relative_url'))
+    ->fields('en', array('id', 'query_text', 'query_relative_url', 'click_num'))
     ->condition('query_text', $query_text) //Filter by node title.
     ->range(0, 1) //LIMIT to 1 record
     ->execute();
     
     $query_id = 0;
     foreach ($query as $entry) {
+      // Entry exists
       $query_id = $entry->id;
+      $click_num = $entry->click_num;
+      
+      db_update('custom_recommend_sprsqueries')
+      ->fields(array(
+        'click_num' => $click_num + 1,
+      ))
+      ->condition('id', $query_id)
+      ->execute();
     }
     
     if($query_id == 0) {
@@ -196,6 +284,7 @@ function custom_recommend_process_frontend_data() {
       ->fields(array(
         'query_text' => $query_text,
         'query_relative_url' => $query_rel_url[1],
+        'click_num' => 1,
       ))
       ->execute();
       //drupal_set_message($query_id);
