@@ -10,90 +10,14 @@
  * Implements hook_block_info().
  */
 function custom_recommend_block_info() {
-  $blocks['custom_recommend_pages'] = array(
+  $blocks['custom_recommend_links'] = array(
     // The name that will appear in the Block list.
-    'info' => t('Custom recommend Pages'),
+    'info' => t('Custom recommend links'),
     // Default caching setting.
     'cache' => DRUPAL_CACHE_PER_ROLE,
   );
   return $blocks;
 }
-
-/**
- * Custom content function. 
- * 
- * Retrieve nodes from database, sorted by creation date.
- * 
- * @return 
- *   A filtered set of the nodes.
- */
-function custom_recommend_retrieve_nodes($cur_nid){ 
-  $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
-  //drupal_set_message($cur_nid);
-  
-  
-  
-  $query2 = db_select('custom_recommend_sprsquery_results', 'res');
-  $query2->join('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
-  
-  $query2
-    ->fields('res', array('queryid', 'entityid'), 'que', array('id'))
-    ->condition('res.entityid', 226) 
-    ->range(0, 100);
-  
-  $result2 = $query2->execute();  
-  // Iterate over the results and format every item as link.
-  foreach ($result2 as $entry) {
-    drupal_set_message($entry->{'queryid'});
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  // Database API to retrieve nodes is being used.
-  $query = db_select('custom_recommend_sprspages', 'clicks');
-  $query->join('node', 'n', 'n.nid = clicks.entityid');
-  
-  $query
-    ->fields('n', array('nid', 'title', 'created', 'type'))
-    ->condition('n.status', 1) //Only published nodes should be listed. 
-    //->condition('n.type', array('object', 'individual', 'article', 'event'), '=')
-    ->orderBy('clicks.click_num', 'DESC') //Most recent ones go first.
-    ->range(0, $max_nodes_num); //LIMIT to given number of records.
-
-   $result= $query->execute();  
-  
-  return $result;  
-}
-
-
-
-function custom_recommend_retrieve_queries($cur_nid){ 
-  $max_queries_num = variable_get('custom_recommend_queries_max', 5);
- 
-  
-  // Database API to retrieve nodes is being used.
-  $query = db_select('custom_recommend_sprsquery_results', 'res');
-  $query->leftJoin('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
-  
-  // 
-  $query
-    ->fields('que', array('id', 'query_text', 'query_relative_url', 'click_num'), 'res', array('queryid', 'entityid'))
-    ->condition('res.entityid', $cur_nid) //Only published nodes should be listed. 
-    ->orderBy('que.click_num', 'DESC') //Most popular ones go first.
-    ->range(0, $max_queries_num); //LIMIT to given number of records.
-
-   $result= $query->execute();  
-  
-  return $result;  
-}
-
 
 /**
  * Implements hook_block_view().
@@ -102,7 +26,7 @@ function custom_recommend_retrieve_queries($cur_nid){
  */
 function custom_recommend_block_view($delta = '') {
   switch ($delta) {
-    case 'custom_recommend_pages':
+    case 'custom_recommend_links':
       $block['subject'] = t('Related Links');
       // Check if user is allowed to see a node to prevent data disclosure.
       if (user_access('access content')) {    
@@ -148,12 +72,14 @@ function custom_recommend_block_view($delta = '') {
         if (empty($items)) {
           $pages_element = t('Err, we have no stories like this. Yet.');  
         } else {
+          // Pass data through theme function to theme it by our site's theme.
           $pages_element = theme('item_list', array(
           'items' => $items));
         }
         
-        // Pass data through theme function to theme it by our site's theme.
-        $block['content'] = t('<p>Related Stories</p>') . $pages_element . t('<hr/><p>Related Queries</p>') . $queries_element;
+        
+        //$block['content'] = t('<p>Related Stories</p>') . $pages_element . t('<hr/><p>Related Queries</p>') . $queries_element;
+        $block['content'] = t('<p>Related Queries</p>') . $queries_element . '<hr/>' . t('<p>Related Stories</p>') . $pages_element;
         
       }
     return $block;
@@ -233,6 +159,66 @@ function custom_recommend_form($form, &$form_state) {
   );
 
   return system_settings_form($form);
+}
+
+/**
+ * Custom content function. 
+ * 
+ * Retrieve nodes from database, sorted by creation date.
+ * 
+ * @return 
+ *   A filtered set of the nodes.
+ */
+function custom_recommend_retrieve_nodes($cur_nid){ 
+  $max_nodes_num = variable_get('custom_recommend_nodes_max', 5);
+  //drupal_set_message($cur_nid);
+  
+  
+  
+  $query = db_select('custom_recommend_sprsquery_results', 'res');
+  $query->join('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
+  $query->rightJoin('custom_recommend_sprsquery_results', 'res2', 'que.id = res2.queryid');
+  $query->leftJoin('custom_recommend_sprspages', 'clicks', 'clicks.entityid = res2.entityid');
+  $query->leftJoin('node', 'n', 'n.nid = res2.entityid');
+  
+  $query
+    //->fields('res', array('queryid', 'entityid'), 'que', array('id'))
+    ->fields('n', array('nid', 'title'))
+    ->condition('res.entityid', $cur_nid) 
+    ->condition('res2.entityid', $cur_nid, '<>')
+    ->orderBy('clicks.click_num', 'DESC') //Most popular ones go first.
+    ->range(0, $max_nodes_num);
+  
+  $result = $query->execute();
+  
+  return $result;
+  // Iterate over the results and format every item as link.
+  //foreach ($result2 as $entry) {
+    //drupal_set_message(var_dump($entry));
+  //  drupal_set_message($entry->{'title'});
+  //} 
+}
+
+
+
+function custom_recommend_retrieve_queries($cur_nid){ 
+  $max_queries_num = variable_get('custom_recommend_queries_max', 5);
+ 
+  
+  // Database API to retrieve nodes is being used.
+  $query = db_select('custom_recommend_sprsquery_results', 'res');
+  $query->leftJoin('custom_recommend_sprsqueries', 'que', 'que.id = res.queryid');
+  
+  // 
+  $query
+    ->fields('que', array('id', 'query_text', 'query_relative_url', 'click_num'), 'res', array('queryid', 'entityid'))
+    ->condition('res.entityid', $cur_nid) //Only published nodes should be listed. 
+    ->orderBy('que.click_num', 'DESC') //Most popular ones go first.
+    ->range(0, $max_queries_num); //LIMIT to given number of records.
+
+   $result= $query->execute();  
+  
+  return $result;  
 }
 
 /**
