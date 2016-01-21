@@ -1,9 +1,15 @@
 <?php
 
+// Function to create DB tables on install (and to delete it on uninstall).
 function custom_recommend_schema() {
   
   // 'Unsigned' integer can hold a larger positive value, and no negative value.
   // We don't have to create indexes for Primary key column.
+  
+  // Table to store click-per-page rate.
+  // Entry is added here only in case there was a click, so there may be
+  // page-related entry in custom_recommend_sprsquery_results table for a
+  // certain page, and no entry for that page here.
   $schema ['custom_recommend_sprspages'] = array(
     'description' => 'Table to store number of clicks per page.',
     'fields' => array(
@@ -31,10 +37,7 @@ function custom_recommend_schema() {
     'primary key' => array('entityid'),
   );
   
-  //TODO: Ask if VARCHAR is fine (255 symbols limit)
-  //TODO: Ask if we should use query text or (or AND) URL as unique identifier
-  //TODO: Ask if we should update queries and pages
-  //TODO: Ask about types of nodes we should track
+  // Table to store search queries.
   $schema ['custom_recommend_sprsqueries'] = array(
     'description' => 'Table to store search queries.',
     'fields' => array(
@@ -62,7 +65,7 @@ function custom_recommend_schema() {
       ),
       
       'click_num' => array(
-        'description' => 'Number of clicks per Save button.',
+        'description' => 'Number of clicks per Save button per query.',
         'type' => 'int',
         'unsigned' => TRUE,
         'default' => 0,
@@ -72,13 +75,14 @@ function custom_recommend_schema() {
     
     'indexes' => array(
       'query_text' => array('query_text'),
-      'click_numt' => array('click_num'),
+      'click_num' => array('click_num'),
     ),
     
     'primary key' => array('id'),
   );
   
-  //Each NID and ID can be listed multiple times in that table.
+  // Table to store NIDs of pages listed among particular query results.
+  // Each NID and ID can be listed multiple times in that table.
   $schema ['custom_recommend_sprsquery_results'] = array(
     'description' => 'Table to store NIDs of pages listed among particular query results.',
     'fields' => array(
