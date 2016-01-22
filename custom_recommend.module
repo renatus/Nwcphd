@@ -201,6 +201,7 @@ function custom_recommend_retrieve_nodes($cur_nid){
   // You can join the very same table two times, convenient in case you need
   // sophisticated filtration. 
   $query
+    ->distinct() // Return unique results only (otherwise there would be dupes, if more than one query is associated with current page)
     ->fields('n', array('nid', 'title'))
     ->condition('res.entityid', $cur_nid) 
     ->condition('res2.entityid', $cur_nid, '<>')
