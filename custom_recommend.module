@@ -366,15 +366,12 @@ function custom_recommend_retrieve_node_by_title($node_title){
  * Collect link click numbers by tracking node views.
  */
 function custom_recommend_node_view($node, $view_mode) {
-  // If loaded node is of particular type.
-  if ($node->type=="object" || $node->type=="individual" || $node->type=="article" || $node->type=="event" || $node->type=="book" || $node->type=="page" || $node->type=="blog" ){
-    // If it's not preview, but a full page being viewed.
-    if ($view_mode == 'full'){
-      // We should add one more click to a page being viewed currently.
-      custom_recommend_add_click($node->nid);
-    }
-    return $node;
-  }    
+  // If it's not preview, but a full page being viewed.
+  if ($view_mode == 'full'){
+    // We should add one more click to a page being viewed currently.
+    custom_recommend_add_click($node->nid);
+  }
+  return $node;   
 }
 
 /**
