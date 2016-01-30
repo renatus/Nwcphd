@@ -364,22 +364,14 @@ function custom_recommend_retrieve_node_by_title($node_title){
  * Implements hook_node_view().
  * 
  * Collect link click numbers by tracking node views.
- * We should only count those page views, that came from SPRS page.
  */
 function custom_recommend_node_view($node, $view_mode) {
   // If loaded node is of particular type.
-  if ($node->type=="object" || $node->type=="individual" || $node->type=="article" || $node->type=="event"){
+  if ($node->type=="object" || $node->type=="individual" || $node->type=="article" || $node->type=="event" || $node->type=="book" || $node->type=="page" || $node->type=="blog" ){
     // If it's not preview, but a full page being viewed.
     if ($view_mode == 'full'){
-      // Full SPRS.htm URL.
-      $sprs_url = $GLOBALS['base_url'] . '/' . variable_get('custom_recommend_sprs_url', 'SPRS/SPRS.htm');
-      // Page URL user has visited before current one.
-      $prev_page_visited = filter_input(INPUT_SERVER, "HTTP_REFERER", FILTER_SANITIZE_URL);
-      // If user has came from SPRS.htm page.
-      if ($prev_page_visited == $sprs_url) {
-        // We should add one more click to a page being viewed currently.
-        custom_recommend_add_click($node->nid);
-      }
+      // We should add one more click to a page being viewed currently.
+      custom_recommend_add_click($node->nid);
     }
     return $node;
   }    
