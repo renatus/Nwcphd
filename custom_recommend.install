@@ -51,8 +51,8 @@ function custom_recommend_schema() {
       
       'query_text' => array(
         'description' => 'Query in a human-readable form.',
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
+        'length' => 3000,
         'not null' => TRUE,
         'default' => '',
       ),
