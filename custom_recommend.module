@@ -66,26 +66,35 @@ function custom_recommend_block_view($delta = '') {
           }
         }
 
-        if (empty($queries_list)) {
-          // There are no queries associated with the currently displayed page.
-          $queries_element = t('Err, that page was not shown in the search results. Yet.');
-        } else {
+        if (!empty($queries_list)) {
           // There are queries associated with currently displayed page.
           // Pass data through theme function to theme it by our site's theme.
           $queries_element = theme('item_list', array('items' => $queries_list));
         }
         
-        if (empty($items)) {
-          // There are no pages associated with the currently displayed page.
-          $pages_element = t('Err, we have no stories like this. Yet.');  
-        } else {
+        if (!empty($items)) {
           // There are pages associated with the currently displayed page.
           // Pass data through theme function to theme it by our site's theme.
           $pages_element = theme('item_list', array('items' => $items));
         }
         
-        // Add prepared content to block.
-        $block['content'] = t('<p>Related Queries</p>') . $queries_element . '<hr/>' . t('<p>Related Stories</p>') . $pages_element;
+        if (!empty($queries_element) && !empty($pages_element)) {
+          // There are both queries and stories
+          // Add prepared content to block.
+          $block['content'] = t('<p>Related Queries</p>') . $queries_element . '<hr/>' . t('<p>Related Stories</p>') . $pages_element;
+        } elseif (!empty($queries_element) && empty($pages_element)) {
+          // There are only queries
+          // Add prepared content to block.
+          $block['content'] = t('<p>Related Queries</p>') . $queries_element;
+        } elseif (empty($queries_element) && !empty($pages_element)) {
+          // There are only stories
+          // Add prepared content to block.
+          $block['content'] = t('<p>Related Stories</p>') . $pages_element;
+        } else {
+          //There is absolutely no content for our block, do nothink to prevent
+          //it from appearing.
+        }
+        
       }
     return $block;
   }
